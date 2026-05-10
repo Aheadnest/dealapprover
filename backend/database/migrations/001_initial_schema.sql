@@ -4,6 +4,7 @@
 
 SET NAMES utf8mb4;
 SET time_zone = '+00:00';
+SET collation_connection = utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------
 -- users
@@ -46,7 +47,7 @@ CREATE TABLE IF NOT EXISTS oauth_accounts (
   PRIMARY KEY (id),
   UNIQUE KEY uq_oauth_provider_account (provider, provider_account_id),
   CONSTRAINT fk_oauth_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------
 -- email_verification_tokens
@@ -62,7 +63,7 @@ CREATE TABLE IF NOT EXISTS email_verification_tokens (
   UNIQUE KEY uq_evtoken_hash (token_hash),
   KEY idx_evtoken_user (user_id),
   CONSTRAINT fk_evtoken_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------
 -- password_reset_tokens
@@ -78,7 +79,7 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   UNIQUE KEY uq_prt_user (user_id),
   UNIQUE KEY uq_prt_hash (token_hash),
   CONSTRAINT fk_prt_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------
 -- phone_verification_codes  (SMS L1 verification)
@@ -92,7 +93,7 @@ CREATE TABLE IF NOT EXISTS phone_verification_codes (
   created_at  DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (user_id),
   CONSTRAINT fk_pvc_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------
 -- items
@@ -108,8 +109,8 @@ CREATE TABLE IF NOT EXISTS items (
   serial_number_hash  VARBINARY(32)   NULL,
   imei_enc            BLOB            NULL,
   gtin                VARCHAR(14)     NULL,
-  condition           ENUM('new','like_new','good','fair') NOT NULL,
-  description         TEXT            NOT NULL DEFAULT '',
+  `condition`         ENUM('new','like_new','good','fair') NOT NULL,
+  description         TEXT            NOT NULL,
   price_minor         INT             NULL,
   currency            CHAR(3)         NULL,
   extra               JSON            NOT NULL DEFAULT (JSON_OBJECT()),
@@ -121,7 +122,7 @@ CREATE TABLE IF NOT EXISTS items (
   KEY idx_items_user_status (user_id, status),
   KEY idx_items_serial_hash (serial_number_hash),
   CONSTRAINT fk_items_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------
 -- item_photos
@@ -140,7 +141,7 @@ CREATE TABLE IF NOT EXISTS item_photos (
   PRIMARY KEY (id),
   KEY idx_photos_item (item_id),
   CONSTRAINT fk_photos_item FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------
 -- signing_keys
@@ -156,7 +157,7 @@ CREATE TABLE IF NOT EXISTS signing_keys (
   created_at      DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
   KEY idx_signing_keys_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------
 -- certificates
@@ -184,7 +185,7 @@ CREATE TABLE IF NOT EXISTS certificates (
   CONSTRAINT fk_cert_item FOREIGN KEY (item_id) REFERENCES items(id),
   CONSTRAINT fk_cert_user FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_cert_key  FOREIGN KEY (signing_key_id) REFERENCES signing_keys(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------
 -- scan_events  (append-only, privacy-preserving)
@@ -200,7 +201,7 @@ CREATE TABLE IF NOT EXISTS scan_events (
   PRIMARY KEY (id),
   KEY idx_scan_cert_at (certificate_id, at),
   CONSTRAINT fk_scan_cert FOREIGN KEY (certificate_id) REFERENCES certificates(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------
 -- audit_log  (append-only)
@@ -216,7 +217,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   at              DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
   KEY idx_audit_actor_at (actor_user_id, at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------
 -- webhook_events  (Stripe idempotency)
@@ -231,7 +232,7 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   processed_at DATETIME(3)     NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_webhook_event_id (event_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------
 -- reports  (buyer concerns)
@@ -247,4 +248,4 @@ CREATE TABLE IF NOT EXISTS reports (
   PRIMARY KEY (id),
   KEY idx_reports_cert (certificate_id),
   CONSTRAINT fk_reports_cert FOREIGN KEY (certificate_id) REFERENCES certificates(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -72,8 +72,12 @@ export function createApp() {
       keyGenerator: (req) => {
         const body = req.body as { email?: string } | undefined;
         const email = body?.email ?? "";
-        return `${req.ip}:${email.toLowerCase()}`;
+        // Normalise IPv6 to /56 subnet prefix to avoid bypass via address rotation
+        const ip = req.ip ?? "";
+        const normIp = ip.includes(":") ? ip.split(":").slice(0, 4).join(":") : ip;
+        return `${normIp}:${email.toLowerCase()}`;
       },
+      validate: { xForwardedForHeader: false },
       message: { error: { code: "RATE_LIMITED", message: "Too many login attempts. Try again later." } },
     }),
   );
