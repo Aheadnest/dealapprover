@@ -1,0 +1,58 @@
+# Production compose run on the VPS.
+# CI/CD pipeline (.github/workflows/deploy.yml) rsyncs this file + .env
+# to ~/dealapprover/config on the VPS and runs `docker compose up -d`.
+#
+# Required env vars (loaded from sibling .env file):
+#   REPO_LOWER         e.g. tiago/dealapprover
+#   TAG                short SHA or 'latest'
+#   PROJECT_NAME       e.g. dealapprover
+#   MYSQL_USER, MYSQL_PASSWORD, DB_ROOT_PASSWORD
+
+services:
+  # --------------------------------------------------
+  # Backend — Express API + SSR trust pages on port 3005
+  # --------------------------------------------------
+  backend:
+    image: ghcr.io/${REPO_LOWER}/backend:${TAG}
+    container_name: ${PROJECT_NAME}-backend
+    restart: unless-stopped
+    env_file: ../.env
+    ports:
+      - "127.0.0.1:3005:3005"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-net
+
+  # --------------------------------------------------
+  # MySQL 8 — data persisted in named volume
+  # --------------------------------------------------
+  db:
+    image: mysql:8.0
+    container_name: ${PROJECT_NAME}-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: dealapprover
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db-data:/var/lib/mysql
+    ports:
+      - "127.0.0.1:3306:3306"
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  app-net:
+    name: ${PROJECT_NAME}-net
+    driver: bridge
+
+volumes:
+  db-data:

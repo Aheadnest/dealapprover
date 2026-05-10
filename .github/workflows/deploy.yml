@@ -1,0 +1,96 @@
+name: Deploy
+run-name: Deploy backend from ${{ github.ref_name }} on ${{ inputs.env }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        default: latest
+      env:
+        description: "Deployment environment"
+        required: true
+        default: PROD
+        type: choice
+        options: [PROD, DEV]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.env }}
+    timeout-minutes: 20
+    env:
+      PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --------------------------------------------------
+      # Generate .env from GitHub Secrets + Vars
+      # --------------------------------------------------
+      - name: Generate .env
+        env:
+          ALL_SECRETS: ${{ toJson(secrets) }}
+          VARS_JSON:   ${{ toJson(vars) }}
+        run: |
+          set -euo pipefail
+          {
+            echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+            echo "TAG=${{ inputs.image_tag }}"
+            jq -r --argjson s "$ALL_SECRETS" \
+              '.backend[] | . as $k | select($s[$k] != null) | "\($k)=\($s[$k])"' \
+              .github/workflows/app-secrets.json
+            echo "$VARS_JSON" | jq -r 'to_entries[] | "\(.key)=\(.value)"'
+          } > .env
+
+      # --------------------------------------------------
+      # Sync .env + config/ to VPS
+      # --------------------------------------------------
+      - name: Sync files to VPS
+        env:
+          SSH_KEY:  ${{ secrets.VPS_PRIVATE_KEY }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          set -euo pipefail
+          echo "$SSH_KEY" > key
+          chmod 600 key
+          trap 'rm -f key' EXIT
+
+          rsync -az --delete \
+            -e "ssh -i key -o StrictHostKeyChecking=no -p $VPS_PORT" \
+            .env config \
+            "${VPS_USER}@${VPS_HOST}:~/${PROJECT_NAME}"
+
+      # --------------------------------------------------
+      # Pull new image and restart container
+      # --------------------------------------------------
+      - name: Run Docker Compose on VPS
+        env:
+          SSH_KEY:  ${{ secrets.VPS_PRIVATE_KEY }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "$SSH_KEY" > key
+          chmod 600 key
+          trap 'rm -f key' EXIT
+
+          ssh -T -i key -o StrictHostKeyChecking=no -p $VPS_PORT \
+            $VPS_USER@$VPS_HOST << 'ENDSSH'
+              set -euo pipefail
+              cd ~/${PROJECT_NAME}/config
+
+              echo "${GH_TOKEN}" | docker login ghcr.io -u github --password-stdin
+
+              docker compose --env-file ../.env pull backend
+              docker compose --env-file ../.env up -d --no-deps backend
+
+              docker image prune -f --filter dangling=true
+ENDSSH

@@ -1,0 +1,9 @@
+name = "dealapprover-app"
+compatibility_date = "2024-09-23"
+
+[assets]
+directory = "./dist"
+
+# Cloudflare Pages auto-detects functions/ for Pages Functions.
+# Set API_ORIGIN in the CF Pages dashboard (Environment Variables) to the BE URL,
+# e.g. https://api.dealapprover.com

@@ -1,0 +1,24 @@
+{
+  "name": "dealapprover",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": "22.x"
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n frontend,backend -c blue,green \"npm run dev --workspace frontend\" \"npm run dev --workspace backend\"",
+    "dev:db": "docker compose -f config/docker-compose.dev.yml up -d",
+    "dev:db:down": "docker compose -f config/docker-compose.dev.yml down",
+    "dev:migrate": "docker exec -i dealapprover-db-dev mysql -u app -papp dealapprover < backend/database/migrations/001_initial_schema.sql && npm run dev:keygen --workspace backend",
+    "build": "npm run build --workspace frontend && npm run build --workspace backend",
+    "lint": "npm run lint --workspace frontend && npm run lint --workspace backend",
+    "typecheck": "npm run typecheck --workspace frontend && npm run typecheck --workspace backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

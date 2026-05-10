@@ -1,0 +1,35 @@
+# Local development: only MySQL.
+# Frontend + Backend are run with `npm run dev` for hot-reload.
+#
+# Usage:
+#   docker compose -f config/docker-compose.dev.yml up -d
+#   docker compose -f config/docker-compose.dev.yml down
+#
+# Then in another terminal:
+#   cp backend/.env.example backend/.env   # fill secrets
+#   npm install
+#   npm run dev:migrate                    # apply schema + seed signing key
+#   npm run dev                            # FE :5173, BE :3005
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: dealapprover-db-dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: dealapprover
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app
+    volumes:
+      - dealapprover-db-dev-data:/var/lib/mysql
+    ports:
+      - "127.0.0.1:3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  dealapprover-db-dev-data:
