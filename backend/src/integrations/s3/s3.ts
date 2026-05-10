@@ -9,14 +9,28 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { createHash } from "crypto";
 import type { Readable } from "stream";
 import { env } from "../../config/env.js";
+import {
+  localPut, localGet, localCopy, localDelete, localSha256,
+  localPutUrl, localGetUrl,
+} from "./local-storage.js";
 
-export const s3 = new S3Client({
-  region: env.awsRegion,
-  credentials: {
-    accessKeyId: env.awsAccessKeyId,
-    secretAccessKey: env.awsSecretAccessKey,
-  },
-});
+// Local mode: AWS credentials are placeholder values
+export const isLocalMode =
+  env.awsAccessKeyId === "dummy" || env.awsSecretAccessKey === "dummy";
+
+if (isLocalMode) {
+  console.log("[s3] Using local filesystem storage (data/local-s3/)");
+}
+
+export const s3 = isLocalMode
+  ? null
+  : new S3Client({
+      region: env.awsRegion,
+      credentials: {
+        accessKeyId: env.awsAccessKeyId,
+        secretAccessKey: env.awsSecretAccessKey,
+      },
+    });
 
 export async function getPresignedPutUrl(
   bucket: string,
@@ -24,8 +38,9 @@ export async function getPresignedPutUrl(
   contentType: string,
   ttlSeconds = 300,
 ): Promise<string> {
+  if (isLocalMode) return localPutUrl(bucket, key);
   return getSignedUrl(
-    s3,
+    s3!,
     new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }),
     { expiresIn: ttlSeconds },
   );
@@ -36,8 +51,9 @@ export async function getPresignedGetUrl(
   key: string,
   ttlSeconds = 900,
 ): Promise<string> {
+  if (isLocalMode) return localGetUrl(bucket, key);
   return getSignedUrl(
-    s3,
+    s3!,
     new GetObjectCommand({ Bucket: bucket, Key: key }),
     { expiresIn: ttlSeconds },
   );
@@ -49,7 +65,8 @@ export async function copyObject(
   destBucket: string,
   destKey: string,
 ): Promise<void> {
-  await s3.send(
+  if (isLocalMode) return localCopy(sourceBucket, sourceKey, destBucket, destKey);
+  await s3!.send(
     new CopyObjectCommand({
       CopySource: `${sourceBucket}/${sourceKey}`,
       Bucket: destBucket,
@@ -59,7 +76,8 @@ export async function copyObject(
 }
 
 export async function deleteObject(bucket: string, key: string): Promise<void> {
-  await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+  if (isLocalMode) return localDelete(bucket, key);
+  await s3!.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
 
 export async function putObject(
@@ -68,13 +86,15 @@ export async function putObject(
   body: Buffer,
   contentType: string,
 ): Promise<void> {
-  await s3.send(
+  if (isLocalMode) return localPut(bucket, key, body);
+  await s3!.send(
     new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }),
   );
 }
 
 export async function sha256OfS3Object(bucket: string, key: string): Promise<Buffer> {
-  const response = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  if (isLocalMode) return localSha256(bucket, key);
+  const response = await s3!.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
   const stream = response.Body as Readable;
   return new Promise((resolve, reject) => {
     const hash = createHash("sha256");
@@ -85,7 +105,8 @@ export async function sha256OfS3Object(bucket: string, key: string): Promise<Buf
 }
 
 export async function getObjectBuffer(bucket: string, key: string): Promise<Buffer> {
-  const response = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  if (isLocalMode) return localGet(bucket, key);
+  const response = await s3!.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
   const stream = response.Body as Readable;
   const chunks: Buffer[] = [];
   return new Promise((resolve, reject) => {

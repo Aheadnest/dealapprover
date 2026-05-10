@@ -16,6 +16,8 @@ import { billingRouter } from "./features/billing/billing.routes.js";
 import { accountRouter } from "./features/account/account.routes.js";
 import { reportsRouter } from "./features/reports/reports.routes.js";
 import { scansRouter } from "./features/scans/scans.routes.js";
+import { localFilesRouter } from "./routes/local-files.js";
+import { isLocalMode } from "./integrations/s3/s3.js";
 
 export function createApp() {
   const app = express();
@@ -77,7 +79,7 @@ export function createApp() {
         const normIp = ip.includes(":") ? ip.split(":").slice(0, 4).join(":") : ip;
         return `${normIp}:${email.toLowerCase()}`;
       },
-      validate: { xForwardedForHeader: false },
+      validate: { xForwardedForHeader: false, keyGeneratorIpFallback: false },
       message: { error: { code: "RATE_LIMITED", message: "Too many login attempts. Try again later." } },
     }),
   );
@@ -114,6 +116,9 @@ export function createApp() {
       message: { error: { code: "RATE_LIMITED", message: "Too many certificate issuances per hour." } },
     }),
   );
+
+  // Local file storage endpoints (dev only — replaces S3 presigned URLs)
+  if (isLocalMode) app.use("/api/v1", localFilesRouter);
 
   // Trust page — /c/:slug (SSR, no /api prefix)
   app.use(trustPageRouter);
