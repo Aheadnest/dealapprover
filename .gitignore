@@ -38,6 +38,9 @@ Thumbs.db
 coverage/
 .nyc_output/
 
+# Local S3 file storage (dev only)
+backend/data/
+
 # Misc
 *.pid
 .eslintcache

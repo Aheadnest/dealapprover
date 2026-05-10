@@ -10,7 +10,8 @@ export const localFilesRouter = Router();
 // PUT /api/v1/_local/upload/:bucket/*key  — browser uploads raw file body
 localFilesRouter.put("/_local/upload/:bucket/*key", async (req, res) => {
   const bucket = String(req.params["bucket"]);
-  const key = String((req.params as unknown as Record<string, string>)["key"] ?? "");
+  const rawKey = (req.params as unknown as Record<string, string | string[]>)["key"] ?? "";
+  const key = Array.isArray(rawKey) ? rawKey.join("/") : String(rawKey);
   const p = path.join(STORAGE_DIR, bucket, key);
   await mkdir(path.dirname(p), { recursive: true });
 
@@ -28,7 +29,8 @@ localFilesRouter.put("/_local/upload/:bucket/*key", async (req, res) => {
 // GET /api/v1/_local/files/:bucket/*key  — serve stored file
 localFilesRouter.get("/_local/files/:bucket/*key", async (req, res) => {
   const bucket = String(req.params["bucket"]);
-  const key = String((req.params as unknown as Record<string, string>)["key"] ?? "");
+  const rawKey = (req.params as unknown as Record<string, string | string[]>)["key"] ?? "";
+  const key = Array.isArray(rawKey) ? rawKey.join("/") : String(rawKey);
   const p = path.join(STORAGE_DIR, bucket, key);
   try {
     const buf = await readFile(p);
