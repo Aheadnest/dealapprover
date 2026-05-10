@@ -42,3 +42,4 @@ coverage/
 *.pid
 .eslintcache
 *.tmp
+.claude/settings.json
